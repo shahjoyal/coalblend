@@ -26,6 +26,8 @@
       flex-direction: column;
       align-items: flex-start;
       padding: 90px 14px 8px; /* top padding increased for navbar */
+      /* allow normal page scrolling */
+      overflow-x: hidden;
     }
 
     h1 {
@@ -377,7 +379,7 @@
 .bunker path {
   fill: none;
   stroke: black;
-  stroke-width: 2;
+  stroke-width: 2px;
 }
 
 .label {
@@ -436,6 +438,7 @@
 
   .main-container {
     max-width: 100%;
+    align-items: stretch; /* allow children to expand full width on mobile */
   }
 
   .mills-grid {
@@ -476,9 +479,21 @@
     width: 100%;
   }
 
-  .diagram-row .summary-table {
-    width: 100%;
-    position: static;
+  /* MAIN CHANGE: make the summary table static and full-width on mobile
+     This lets it sit below the main content in the DOM (so it appears under the table)
+     and allow the page to scroll naturally when content is tall. */
+  .summary-table {
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    z-index: auto;
+    width: 100% !important;
+    max-width: 100%;
+    margin: 12px 0 18px 0;
+    grid-template-columns: 1fr 1fr; /* 2-column layout that fits mobile */
+    gap: 8px;
+    padding: 6px;
+    box-sizing: border-box;
   }
 
   .top-line {
@@ -511,6 +526,78 @@
     margin-right: 0;
   }
 }
+/* ---------- responsive summary fixes (paste at end of your stylesheet) ---------- */
+
+/* 1) On large screens keep the summary fixed but make main area leave room */
+@media (min-width: 1201px) {
+  .summary-table {
+    position: fixed;
+    right: 250px;     /* unchanged desktop position */
+    top: 140px;
+    width: 260px;
+    z-index: 9998;
+  }
+
+  /* leave room so fixed summary doesn't overlap content */
+  .main-container {
+    margin-right: 320px; /* > summary width to avoid overlap on wide screens */
+  }
+}
+
+/* 2) On medium screens (where collision often happens) drop summary below */
+@media (max-width: 1200px) and (min-width: 901px) {
+  .summary-table {
+    position: static !important;   /* make it part of normal flow */
+    width: 320px;                  /* narrower so it fits under content nicely */
+    max-width: 100%;
+    margin: 12px 0 18px 0;
+    z-index: auto;
+    grid-template-columns: 1fr 1fr;
+    box-sizing: border-box;
+  }
+
+  .main-container {
+    margin-right: 0; /* remove extra margin */
+  }
+}
+
+/* 3) Mobile: full-width summary below the table, no overlap, scrollable */
+@media (max-width: 900px) {
+  .summary-table {
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    z-index: auto;
+    width: 100% !important;
+    max-width: 100%;
+    margin: 12px 0 18px 0;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 6px;
+    box-sizing: border-box;
+  }
+
+  .main-container {
+    margin-right: 0;
+    align-items: stretch; /* so inputs expand full width */
+  }
+}
+
+/* Optional small tweak: make sure any absolutely-positioned elements inside the layout
+   do not overflow into the summary area by allowing the layout to wrap/scale. */
+.diagram-in-grid,
+.layout {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+/* Ensure the page can scroll vertically when summary becomes long on mobile */
+html, body {
+  height: auto;
+  overflow-y: auto;
+}
+
 
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -986,6 +1073,7 @@ if(localStorage.getItem('isLoggedIn') !== 'true') {
     pdf.save("Coal_Blending_Ratio.pdf");
   });
 });
+
 
 // draws bunker fills based on percentage inputs (unchanged logic)
 function updateBunkerColors() {
