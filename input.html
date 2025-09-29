@@ -1132,5 +1132,70 @@ function updateBunkerColors() {
   }
 }
 </script>
+<!-- paste into input.html (before </body>) -->
+<script>
+(function(){
+  const STORAGE_KEY = 'coalBlending_inputData';
+  const DEBOUNCE_MS = 250;
+  let timer = null;
+
+  function collectState(){
+    const rows = [];
+    // we assume 3 coal rows as in your file (coalName1..3). Adjust if you have more.
+    for (let r = 1; r <= 3; r++){
+      const coalEl = document.getElementById(`coalName${r}`) || document.getElementById(`coalDrop${r}`);
+      const coalName = coalEl ? coalEl.value : '';
+      const percentages = [];
+      for (let m = 0; m < 6; m++){
+        const p = document.querySelector(`.percentage-input[data-row="${r}"][data-mill="${m}"]`);
+        percentages.push(p ? (p.value || '') : '');
+      }
+      const gcvEl = document.getElementById(`gcvBox${r}`);
+      const gcvVal = gcvEl ? (gcvEl.value !== undefined ? gcvEl.value : gcvEl.textContent) : '';
+      const costEl = document.getElementById(`costBox${r}`);
+      const costVal = costEl ? (costEl.value || '') : '';
+      rows.push({ coal: coalName, percentages, gcv: gcvVal, cost: costVal });
+    }
+
+    // collect flows (6 mills)
+    const flows = [];
+    const flowEls = document.querySelectorAll('.flow-input');
+    flowEls.forEach(f => flows.push(f.value || ''));
+
+    // generation if present
+    const genEl = document.getElementById('generation');
+    const generation = genEl ? (genEl.value || '') : '';
+
+    return { rows, flows, generation, ts: Date.now() };
+  }
+
+  function saveState(){
+    const state = collectState();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch(e){ console.error('Cannot save input state', e); }
+  }
+
+  function debounceSave(){
+    clearTimeout(timer);
+    timer = setTimeout(saveState, DEBOUNCE_MS);
+  }
+
+  // attach listeners to inputs/selects present on the page
+  function attach(){
+    const els = Array.from(document.querySelectorAll('input[type="text"], input[type="number"], textarea, select'));
+    els.forEach(el => {
+      el.addEventListener('input', debounceSave, {passive:true});
+      el.addEventListener('change', debounceSave, {passive:true});
+    });
+    // initial save
+    saveState();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+  else attach();
+})();
+</script>
+
 </body>
 </html>
