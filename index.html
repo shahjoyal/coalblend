@@ -1690,6 +1690,116 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<!-- paste into index.html (after existing JS, before </body>) -->
+<script>
+(function(){
+  const INPUT_KEY = 'coalBlending_inputData';
+  const EXCEL_FLAG = 'coalBlending_excelUploaded';
+
+  function applyRowToOverview(row, rowIndex){
+    const r = rowIndex + 1;
+    // coals: overview may use <select id="coalDropN"> or <input id="coalNameN"> depending on panel
+    const selectEl = document.getElementById(`coalDrop${r}`);
+    const inputEl  = document.getElementById(`coalName${r}`);
+    const coalVal = row.coal || '';
+
+    if (selectEl) selectEl.value = coalVal;
+    if (inputEl) inputEl.value = coalVal;
+
+    // percentages
+    (row.percentages || []).forEach((p, m)=>{
+      const inp = document.querySelector(`#overviewTab .percentage-input[data-row="${r}"][data-mill="${m}"]`);
+      if (inp) inp.value = p;
+    });
+
+    // gcv might be input or div
+    const gcvEl = document.getElementById(`gcvBox${r}`);
+    if (gcvEl) {
+      if (gcvEl.tagName === 'INPUT' || gcvEl.tagName === 'TEXTAREA') gcvEl.value = row.gcv || '';
+      else gcvEl.textContent = (row.gcv !== undefined && row.gcv !== null) ? row.gcv : gcvEl.textContent;
+    }
+
+    // cost (typically an input)
+    const costEl = document.getElementById(`costBox${r}`);
+    if (costEl) costEl.value = row.cost || '';
+  }
+
+  function applyStateToOverview(state){
+    if (!state) return;
+    const rows = state.rows || [];
+    rows.forEach((row, idx) => applyRowToOverview(row, idx));
+    (state.flows || []).forEach((f, m) => {
+      const inp = document.querySelector(`#overviewTab .flow-input[data-mill="${m}"]`);
+      if (inp) inp.value = f;
+    });
+    if (state.generation !== undefined){
+      const gen = document.querySelector('#overviewTab #generation') || document.getElementById('generation');
+      if (gen) gen.value = state.generation;
+    }
+
+    // re-run your existing calculations if functions exist (safe guards)
+    const overviewPanel = document.getElementById('overviewTab');
+    if (overviewPanel) {
+      if (typeof updateGCVCostBoxes === 'function') updateGCVCostBoxes(overviewPanel);
+      if (typeof calculateBlended === 'function') calculateBlended(overviewPanel);
+      if (typeof validateMillPercentages === 'function') validateMillPercentages(overviewPanel);
+      if (typeof updateBunkerColors === 'function') updateBunkerColors(overviewPanel);
+      if (typeof updateOverviewSummaryFromOverviewPanel === 'function') updateOverviewSummaryFromOverviewPanel();
+    }
+  }
+
+  function loadAndApply(){
+    // if excel is uploaded, don't apply stored inputs
+    if (localStorage.getItem(EXCEL_FLAG) === 'true') return;
+    const raw = localStorage.getItem(INPUT_KEY);
+    if (!raw) return;
+    try {
+      const state = JSON.parse(raw);
+      applyStateToOverview(state);
+    } catch(err){
+      console.error('Invalid stored input data', err);
+    }
+  }
+
+  // when input.html writes to localStorage this event fires in other tabs/windows
+  window.addEventListener('storage', function(e){
+    if (e.key === INPUT_KEY){
+      // only apply if excel not uploaded
+      if (localStorage.getItem(EXCEL_FLAG) !== 'true') {
+        try {
+          const data = JSON.parse(e.newValue);
+          applyStateToOverview(data);
+        } catch(err){ console.error(err); }
+      }
+    } else if (e.key === EXCEL_FLAG) {
+      // if excel flag toggles from true -> false, reapply manual inputs
+      if (e.newValue === 'false') loadAndApply();
+    }
+  });
+
+  // ensure excel upload sets the flag (index.html already has handleFile; we also guard here)
+  const excelInput = document.getElementById('excelFile');
+  if (excelInput) {
+    excelInput.addEventListener('change', function(ev){
+      if (ev.target.files && ev.target.files.length) {
+        localStorage.setItem(EXCEL_FLAG, 'true');
+      } else {
+        localStorage.setItem(EXCEL_FLAG, 'false');
+      }
+    });
+  }
+
+  // helper: allow user to explicitly clear excel mode from UI (optional)
+  window.clearExcelMode = function(){
+    localStorage.setItem(EXCEL_FLAG, 'false');
+    loadAndApply();
+  };
+
+  // on page load, apply stored inputs (unless excel present)
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadAndApply);
+  else loadAndApply();
+})();
+</script>
 
 
 
